@@ -1,10 +1,14 @@
 from pyo import *
+
 import time
 import random 
 
 # Initialize the pyo server
 s = Server().boot()
 s.start()
+
+notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25]  # C4 to C5
+note_counter = 0
 
 # Define default sound parameters
 default_freq = 100
@@ -26,6 +30,24 @@ drone_sound += fm
 # Apply reverb and delay effects
 reverb = STRev(drone_sound, inpos=[0, 1], revtime=default_reverb_size, cutoff=default_filter_cutoff, bal=0.3).out()
 delay = Delay(reverb, delay=0.5, feedback=0.5).out()
+
+def midiToHz(midi_note):
+    return Sig(440.0) * Pow(2.0, (midi_note - 69) / 12.0)
+    
+# Define rhythm pattern and amplitude variation
+metro = Metro(time=0.5).play()  # Metronome for rhythm
+trig_noise = TrigXnoiseMidi(metro, dist=12, mrange=(60, 96))  # Triggered noise for amplitude variation
+freq = midiToHz(trig_noise)  # Convert MIDI to frequency in Hz
+amp = freq * 0.05  # Amplitude variation based on frequency
+print("Frequency:", freq)
+
+# Apply amplitude variation to sound elements
+osc1.setMul(amp)
+osc2.setMul(amp)
+osc3.setMul(amp)
+fm.setMul(amp)
+
+
 
 def start_sound():
     """
@@ -52,7 +74,7 @@ def update_sound(distance_percentage):
     reverb.setRevtime(reverb_size)
     reverb.setCutoff(filter_cutoff)
     delay.setDelay(map(distance_percentage, 0, 100, 0.5, 1))
-
+distance_percentage = 0 
 def map(value, in_min, in_max, out_min, out_max):
     """
     Map a value from one range to another.
@@ -76,6 +98,9 @@ while True:
     
     # Update the sound parameters based on distance_percentage
     update_sound(distance_percentage)
-    
+
+    osc1.setFreq(notes[note_counter % len(notes)])
+
+    note_counter = note_counter + 1
     # Sleep for a short duration before updating again
     time.sleep(1)

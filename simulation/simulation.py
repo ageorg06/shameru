@@ -67,6 +67,33 @@ def adjust_volume(percentage):
     pygame.mixer.music.set_volume(volume)
     print(f"Volume set to: {volume*100}%")
 
+def check_intersection(event):
+    """
+    Check if the person represented by a dot intersects with the ultrasonic sensors' signals.
+    Adjust the sound based on the intersection.
+    """
+    # Check if event data is available
+    if event.xdata is None or event.ydata is None:
+        return
+    
+    # Get the person's position from the event
+    person_x = event.xdata
+    person_y = event.ydata
+    
+    # Define the positions and ranges of the ultrasonic sensors
+    sensors = [
+        {'x': sensor1_x, 'y': sensor1_y, 'range': sensor1_range},
+        {'x': sensor2_x, 'y': sensor2_y, 'range': sensor2_range},
+        # Add more sensors as needed
+    ]
+    
+    # Iterate through each sensor and check for intersection
+    for sensor in sensors:
+        distance = calculate_distance(person_x, person_y, sensor['x'], sensor['y'])
+        if distance <= sensor['range']:
+            # The person is within the sensor's range, adjust the sound
+            adjust_sound(sensor)
+
 
 def check_intersection():
     """Check if the human dot intersects with any laser line."""
