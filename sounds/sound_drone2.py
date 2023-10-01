@@ -11,7 +11,7 @@ notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25]  # C4 t
 note_counter = 0
 
 # Define default sound parameters
-default_freq = 440
+default_freq = 100
 default_reverb_size = 0.5
 default_filter_cutoff = 5000
 
