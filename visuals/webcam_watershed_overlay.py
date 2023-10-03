@@ -82,6 +82,9 @@ def run():
         markers = cv2.watershed(frame_,markers)
         frame_[markers == -1] = [255,0,0]
                     
+        colors = np.int32( list(np.ndindex(3,3,3))) * 255
+        overlay = colors[np.maximum(markers, 0)-1]
+        vis = cv2.addWeighed(overlay, 0.5, frame_ - 50, 0.5, 0.0, dtype=cv2.CV_BUC3)
         #result_image = cv2.cvtColor(np.array(ret), cv2.COLOR_BGR2GRAY) #cv2.COLOR_BGR2RGB)  
         result_image = cv2.resize(frame_, (1920, 1080))      
         # result_image = cv2.putText(result_image, "NST", org, font,  
@@ -110,7 +113,7 @@ def process(frame):
 
     # noise removal
     kernel = np.ones((3,3),np.uint8)
-    opening = cv2.morphologyEx(thresh,cv2.MORPH_OPEN,kernel, iterations = 2)
+    opening = cv2.morphologyEx(thresh,cv2.MORPH_OPEN,kernel, iterations = 6)
     # sure background area
     sure_bg = cv2.dilate(opening,kernel,iterations=3)
     # Finding sure foreground area
@@ -129,9 +132,13 @@ def process(frame):
 
     markers = cv2.watershed(frame_,markers)
     frame_[markers == -1] = [255,0,0]
-                
+
+    colors = np.int32( list(np.ndindex(3,3,3))) * 255
+    overlay = colors[np.maximum(markers, 0)-1]
+    vis = cv2.addWeighted(overlay, 0.5, frame_ - 50, 0.5, 0.0, dtype=cv2.CV_8UC3)
+        
     #result_image = cv2.cvtColor(np.array(ret), cv2.COLOR_BGR2GRAY) #cv2.COLOR_BGR2RGB)  
-    result_image = cv2.resize(frame_, (1920, 1080))      
+    result_image = cv2.resize(vis, (1920, 1080))      
     # result_image = cv2.putText(result_image, "NST", org, font,  
     #            fontScale, color, thickness, cv2.LINE_AA)   
     # cv2.imshow('nst', result_image)

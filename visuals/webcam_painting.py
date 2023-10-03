@@ -35,7 +35,9 @@ def tensor2im(input_image, imtype=np.uint8):
     return image_numpy.astype(imtype)
 
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
+def run():
+    print("-- Webcam Painting --")
 
     #start video/webcamsetup
     webcam = cv2.VideoCapture(0)
@@ -73,3 +75,25 @@ if __name__ == '__main__':
 
     cap.release()
     cv2.destroyAllWindows()
+
+
+def process(frame):
+    print("-- Webcam Painting --")
+    frame_ = cv2.resize(frame, (768,512), interpolation=cv2.INTER_AREA)
+    frame_ = cv2.cvtColor(frame_, cv2.COLOR_BGR2RGB)
+    # kuwahara filter to make into painting
+    frame_ = kuwahara(frame_, method='mean', radius=10)  
+
+    frame_ = np.array([frame_])
+    frame_ = frame_.transpose([0,3,1,2])
+    frame = torch.FloatTensor(frame_).to(device)
+    
+            
+    # # result_image = Image.fromarray(frame_)
+    result_image = tensor2im(frame)
+    
+    result_image = cv2.cvtColor(np.array(result_image), cv2.COLOR_BGR2RGB) #cv2.COLOR_BGR2RGB)  
+    
+    result_image = cv2.resize(result_image, (1920, 1080))      
+    return result_image
+    # cv2.imshow('shameru', result_image)

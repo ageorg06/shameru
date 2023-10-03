@@ -35,8 +35,9 @@ def tensor2im(input_image, imtype=np.uint8):
     return image_numpy.astype(imtype)
 
 
-if __name__ == '__main__':
-
+# if __name__ == '__main__':
+def run():
+    print("-- Webcam Edges --")
     #start video/webcamsetup
     webcam = cv2.VideoCapture(0)
     # Check if the webcam is opened correctly
@@ -79,11 +80,41 @@ if __name__ == '__main__':
         #ASCII value of Esc is 27.
         c = cv2.waitKey(1)
         if c == 27:
-            break
+                break
 
     cap.release()
     cv2.destroyAllWindows()
-
     # #inference
     # content_paths, style_paths = load_images(args.content_dir, args.style_dir)
     # test_image(network, content_paths, style_paths, args.output_dir)
+
+def process(frame):
+    print("-- Webcam Edges --")
+    #resize frame
+    frame_ = cv2.resize(frame, (768,512), interpolation=cv2.INTER_AREA)
+    frame_ = cv2.cvtColor(frame_, cv2.COLOR_BGR2RGB)
+    
+    
+    frame_ = np.array([frame_])
+    # #now shape is batchsize * channels * h * w
+    frame_ = frame_.transpose([0,3,1,2])
+    frame = torch.FloatTensor(frame_).to(device)
+
+    # DoG response - highlights edges
+    frame = kornia.feature.dog_response_single(frame, sigma1=1.0, sigma2=4.0)
+    # Hessian response - edges
+    # frame = kornia.feature.hessian_response(frame, grads_mode='sobel', sigmas=None)
+
+    # x_numpy = x_feat[0].permute(1,2,0).cpu().numpy()
+    # plt.imshow(x_numpy)
+    # frame = 50 - frame
+    # result_image = Image.fromarray(result_image)
+
+    # manipulate rgb space and make tensor to image
+    result_image = tensor2im(frame)
+    result_image = cv2.cvtColor(np.array(result_image), cv2.COLOR_BGR2RGB) #cv2.COLOR_BGR2RGB)  
+    result_image = cv2.resize(result_image, (1920, 1080))      
+    # result_image = cv2.putText(result_image, "NST", org, font,  
+    #            fontScale, color, thickness, cv2.LINE_AA)  
+    return result_image 
+    # cv2.imshow('shameru', result_image)

@@ -53,7 +53,10 @@ def harris_corners(image):
     return image
 
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
+def run():
+
+    print("-- Webcam Experiments --")
 
     #start video/webcamsetup
     webcam = cv2.VideoCapture(0)
@@ -132,3 +135,44 @@ if __name__ == '__main__':
     # #inference
     # content_paths, style_paths = load_images(args.content_dir, args.style_dir)
     # test_image(network, content_paths, style_paths, args.output_dir)
+
+def process(frame):
+    print("-- Webcam Experiment --")
+    #resize frame
+    frame_ = cv2.resize(frame, (768,512), interpolation=cv2.INTER_AREA)
+    frame_ = cv2.cvtColor(frame_, cv2.COLOR_BGR2RGB)
+    #frame_ = 100 - frame_
+    frame_= cv2.GaussianBlur(frame_,(7,7),5) 
+    #frame_ = cv2.GaussianBlur(frame_,(13,13),cv2.BORDER_DEFAULT)
+    #model wants batchsize * channels * h * w
+    #gives it a dimension for batch size
+    frame = np.array([frame_])
+    # #now shape is batchsize * channels * h * w
+    frame = frame.transpose([0,3,1,2])
+    frame = torch.FloatTensor(frame).to(device)
+
+    # frame = kornia.feature.dog_response_single(frame, sigma1=1.0, sigma2=1.6)
+    # frame = kornia.feature.hessian_response(frame, grads_mode='sobel', sigmas=None)
+    #frame = kornia.feature.gftt_response(frame, grads_mode='sobel', sigmas=None)
+    #result_image = frame[0].permute(1,2,0).cpu().numpy()
+    
+    # result_image = cv2.bitwise_not(result_image)
+    # plt.imshow(x_numpy)
+    # result_image = 255 - result_image            
+
+    result_image = harris_corners(frame_)
+
+
+    # sobelx = cv2.Sobel(smoothed,cv2.CV_64F,1,0,ksize=5) # Change in horizonal direction, dx
+    # sobely = cv2.Sobel(smoothed,cv2.CV_64F,0,1,ksize=5) # Change in verticle direction, dy
+    # result_image = sobelx + sobely # np.square(sobelx)+np.square(sobely) # Square the images element-wise and then add them together 
+    # result_image = np.sqrt(result_image) # Take the square root of the resulting image element-wise to get the gradient magnitude
+
+    # result_image = Image.fromarray(result_image)
+    # result_image = tensor2im(frame)
+    result_image = cv2.cvtColor(np.array(result_image), cv2.COLOR_BGR2RGB) #cv2.COLOR_BGR2RGB)  
+    result_image = cv2.resize(result_image, (1920, 1080))      
+    # result_image = cv2.putText(result_image, "NST", org, font,  
+    #            fontScale, color, thickness, cv2.LINE_AA)   
+    # cv2.imshow('shameru', result_image)
+    return result_image

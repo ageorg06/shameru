@@ -66,8 +66,8 @@ def map_distance_to_rgb(distance):
     return frequency
 
 
-if __name__ == '__main__':
-
+# if __name__ == '__main__':
+def run():
     #start video/webcamsetup
     webcam = cv2.VideoCapture(0)
     # Check if the webcam is opened correctly
