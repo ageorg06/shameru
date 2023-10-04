@@ -1,205 +1,133 @@
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import pygame.mixer
-import math
-from pydub import AudioSegment
-from pydub.playback import play
-import numpy as np
-from pydub.generators import Sine
+import pygame
+from pyo import *
+import random
 
-# Initialize the pygame mixer
-pygame.mixer.init()
+# Initialize pygame
+pygame.init()
 
-# Load the audio file
-song = AudioSegment.from_wav("song.wav")
-pygame.mixer.music.load("song.wav")
+# Colors
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLACK = (0, 0, 0)
 
-# Set the volume (0.0 to 1.0)
-pygame.mixer.music.set_volume(0.1)
+# Screen dimensions
+WIDTH = 400
+HEIGHT = 400
 
-# Play the audio file on repeat
-pygame.mixer.music.play(-1)  # -1 means the music will loop indefinitely
+# Set up the display
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Ultrasonic Sensor Simulation")
 
-# Room dimensions
-room_width = 3.55
-room_length = 3.25
-base_frequencies = [110, 130.81, 146.83]
+# Define the Sensor class
+class Sensor:
+    def __init__(self, x, y, orientation):
+        self.x = x
+        self.y = y
+        self.orientation = orientation
 
-current_volume = 0.0
-fig, ax = plt.subplots()
-room = patches.Rectangle((0, 0), room_width, room_length, fill=False)
-ax.add_patch(room)
+    def draw(self):
+        pygame.draw.circle(screen, GREEN, (self.x, self.y), 10)
+        if self.orientation == "horizontal":
+            pygame.draw.line(screen, GREEN, (self.x, self.y), (WIDTH, self.y), 2)
+        else:
+            pygame.draw.line(screen, GREEN, (self.x, self.y), (self.x, HEIGHT), 2)
 
-# Entrance
-entrance_width = 0.5
-entrance_height = 0.1
-entrance = patches.Rectangle((0, 0), entrance_width, entrance_height, fill=True, color='green')
-ax.add_patch(entrance)
+    def detect(self, person):
+        if self.orientation == "horizontal":
+            if self.y - 5 < person.y < self.y + 5:
+                return abs(self.x - person.x)
+        else:
+            if self.x - 5 < person.x < self.x + 5:
+                return abs(self.y - person.y)
+        return 400
 
-# Human dot
-human_dot, = ax.plot(1, 1, 'ro', markersize=5)  # Initial position at (1m, 1m)
+# Define the Person class
+class Person:
+    def __init__(self):
+        self.x = random.randint(0, WIDTH)
+        self.y = random.randint(0, HEIGHT)
+        self.dx = random.choice([-3, 3])
+        self.dy = random.choice([-3, 3])
 
-# Sensor positions and their corresponding "laser" lines with unique identifiers
-sensors = {
-    'left': [room_length * 1/3, room_length * 2/3],
-    'top': [room_width * 1/5, room_width * 2/5, room_width * 3/5, room_width * 4/5]
-}
-lasers = []
-sensor_ids = []
+    def move(self):
+        self.x += self.dx
+        self.y += self.dy
 
-# Draw "laser" lines for sensors
-sensor_count = 1
-for y in sensors['left']:
-    line, = ax.plot([0, room_width], [y, y], 'g-')  # Horizontal lasers
-    lasers.append(line)
-    sensor_ids.append(f"Sensor-{sensor_count}")
-    sensor_count += 1
+        # Change direction if person hits an edge
+        if self.x <= 0 or self.x >= WIDTH:
+            self.dx = -self.dx
+        if self.y <= 0 or self.y >= HEIGHT:
+            self.dy = -self.dy
 
-for x in sensors['top']:
-    line, = ax.plot([x, x], [0, room_length], 'g-')  # Vertical lasers
-    lasers.append(line)
-    sensor_ids.append(f"Sensor-{sensor_count}")
-    sensor_count += 1
+    def draw(self):
+        pygame.draw.circle(screen, RED, (self.x, self.y), 5)
 
-def adjust_volume(percentage):
-    """Adjust the volume based on the distance from the sensor."""
-    volume = percentage / 100
-    pygame.mixer.music.set_volume(volume)
-    print(f"Volume set to: {volume*100}%")
+# Create sensors and people
+sensors = [
+    Sensor(WIDTH // 4, 0, "horizontal"),
+    Sensor(2 * WIDTH // 4, 0, "horizontal"),
+    Sensor(3 * WIDTH // 4, 0, "horizontal"),
+    Sensor(0, HEIGHT // 4, "vertical"),
+    Sensor(0, 2 * HEIGHT // 4, "vertical"),
+    Sensor(0, 3 * HEIGHT // 4, "vertical")
+]
+people = [Person() for _ in range(5)]
 
-def check_intersection(event):
-    """
-    Check if the person represented by a dot intersects with the ultrasonic sensors' signals.
-    Adjust the sound based on the intersection.
-    """
-    # Check if event data is available
-    if event.xdata is None or event.ydata is None:
-        return
-    
-    # Get the person's position from the event
-    person_x = event.xdata
-    person_y = event.ydata
-    
-    # Define the positions and ranges of the ultrasonic sensors
-    sensors = [
-        {'x': sensor1_x, 'y': sensor1_y, 'range': sensor1_range},
-        {'x': sensor2_x, 'y': sensor2_y, 'range': sensor2_range},
-        # Add more sensors as needed
-    ]
-    
-    # Iterate through each sensor and check for intersection
+font = pygame.font.SysFont(None, 25)
+
+# Start the pyo server
+s = Server().boot()
+s.start()
+
+# Initialize sound elements
+osc1 = Sine(freq=100, mul=0.3)
+osc2 = LFO(freq=50, type=3, mul=0.9)
+osc3 = Osc(table=SquareTable(), freq=25, mul=0.3)
+drone_sound = osc1 + osc2 + osc3
+fm = FM(carrier=100, ratio=[0.2498, 0.2503], index=10, mul=0.3)
+drone_sound += fm
+reverb = STRev(drone_sound, inpos=[0, 1], revtime=2, cutoff=5000, bal=0.3).out()
+delay = Delay(reverb, delay=0.5, feedback=0.5).out()
+
+def modulate_sound(measurements):
+    osc1.setFreq(map_value(measurements[0], 0, 400, 100, 500))
+    osc2.setFreq(map_value(measurements[1], 0, 400, 50, 250))
+    osc3.setFreq(map_value(measurements[2], 0, 400, 25, 125))
+    fm.setCarrier(map_value(measurements[3], 0, 400, 100, 500))
+    reverb.setRevtime(map_value(measurements[4], 0, 400, 0.5, 5))
+    delay.setDelay(map_value(measurements[5], 0, 400, 0.1, 1))
+
+def map_value(value, in_min, in_max, out_min, out_max):
+    return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    screen.fill(WHITE)
+
     for sensor in sensors:
-        distance = calculate_distance(person_x, person_y, sensor['x'], sensor['y'])
-        if distance <= sensor['range']:
-            # The person is within the sensor's range, adjust the sound
-            adjust_sound(sensor)
+        sensor.draw()
 
+    measurements = []
+    for person in people:
+        person.move()
+        person.draw()
+        for sensor in sensors:
+            distance = sensor.detect(person)
+            measurements.append(distance)
+            if distance != 400:
+                text = font.render(f"{distance} cm", True, BLACK)
+                screen.blit(text, (sensor.x + 10, sensor.y + 10))
 
-def check_intersection():
-    """Check if the human dot intersects with any laser line."""
-    x, y = human_dot.get_data()
-    x = x[0]
-    y = y[0]
-    for idx, line in enumerate(lasers):
-        lx, ly = line.get_data()
-        if abs(lx[0] - lx[1]) < 0.01:  # Approximate check for vertical laser
-            if abs(x - lx[0]) < 0.2 and 0 <= y <= room_length:  # Increased threshold
-                line.set_color('red')
-                distance = abs(y - ly[0])
-                print(f"{sensor_ids[idx]} activated. Distance: {distance:.2f} meters.")
-                if idx == 2:
-                    max_distance = room_length
+    # Modulate sound based on measurements
+    modulate_sound(measurements)
 
-                    intensity = distance / max_distance
-                    room_size = 100 * intensity
-                    damping = 1 - intensity
-                    
-                    sine_wave = Sine(440)
-                    sound = sine_wave.to_audio_segment(duration=1000) 
-                    reverb_sound = sound._spawn(sound.raw_data, overrides={
-                        "frame_rate": int(sound.frame_rate * (1 + intensity))
-                    }).set_frame_rate(sound.frame_rate)
+    pygame.display.flip()
+    pygame.time.wait(50)
 
-                    play(reverb_sound)
-                
-                if idx == 3:
-                    max_distance = room_length
-                    adjustment_factor = 1 - (distance / max_distance)
-
-                    adjustment_factor = 1 - (distance / max_distance)
-
-                    frequencies = [base_frequency * (1 + adjustment_factor) for base_frequency in base_frequencies]
-                    volumes = [-20 + (0 - (-20)) * adjustment_factor for _ in base_frequencies]
-                    
-                    adjusted_drone_sound = sum(Sine(frequency).to_audio_segment(duration=5000, volume=volume) for frequency, volume in zip(frequencies, volumes))
-
-                    play(adjusted_drone_sound)
-            else:
-                line.set_color('green')
-        else:  # Horizontal laser
-            if abs(y - ly[0]) < 0.2 and 0 <= x <= room_width:  # Increased threshold
-                line.set_color('red')
-                distance = abs(x - lx[0])
-                print(f"{sensor_ids[idx]} activated. Distance: {distance:.2f} meters.")
-                if idx == 0:
-                    percentage = (distance/room_width) * 100
-                    adjust_volume(100 - percentage)
-                if idx == 1:
-                    base_frequency = 440
-                    max_frequency = 880
-                    max_distance = room_width
-
-                    frequency = base_frequency + (max_frequency - base_frequency) * (1 - distance / max_distance)
-                    sample_rate = 44100
-                    duration = 0.1  # duration of the beep in seconds
-                    t = np.linspace(0, duration, int(sample_rate * duration), False)
-                    waveform = 0.5 * np.sin(2 * np.pi * frequency * t)
-                    stereo_waveform = np.vstack((waveform, waveform)).T
-                    stereo_waveform = np.ascontiguousarray(stereo_waveform)
-                    sound = pygame.sndarray.make_sound(np.int16(stereo_waveform * 32767))
-                    sound.play()
-            else:
-                line.set_color('green')
-
-# Variables to check if the dot is selected and should move
-is_selected = False
-
-def apply_echo(start_time_ms):
-    song = AudioSegment.from_wav("song.wav")
-    
-    # Extract a segment starting from the current playback position
-    segment = song[start_time_ms:start_time_ms + 5000]  # 5 seconds segment
-    
-    # Create the echo (a quieter version of the segment)
-    echo = segment - 20
-    
-    # Combine the original segment with the echo starting 300ms later
-    combined = segment.overlay(echo, position=300)
-    
-    # Play the combined sound
-    play(combined)
-
-def on_press(event):
-    global is_selected
-    if abs(event.xdata - human_dot.get_xdata()) < 0.1 and abs(event.ydata - human_dot.get_ydata()) < 0.1:
-        is_selected = True
-
-def on_release(event):
-    global is_selected
-    is_selected = False
-
-def on_motion(event):
-    if is_selected:
-        human_dot.set_data(event.xdata, event.ydata)
-        check_intersection()  # Check for intersection each time the dot moves
-        fig.canvas.draw()
-
-# Connect the event handlers to the figure
-fig.canvas.mpl_connect('button_press_event', on_press)
-fig.canvas.mpl_connect('button_release_event', on_release)
-fig.canvas.mpl_connect('motion_notify_event', on_motion)
-
-ax.set_xlim(0, room_width)
-ax.set_ylim(0, room_length)
-ax.set_aspect('equal')
-plt.show()
+pygame.quit()
+s.stop()

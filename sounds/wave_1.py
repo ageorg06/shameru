@@ -6,7 +6,7 @@ s = Server().boot()
 s.start()
 
 # Create a noise source
-noise = PinkNoise(mul=0.8)
+noise = PinkNoise(mul=2)
 
 # Create a Low Frequency Oscillator (LFO) to modulate the amplitude of the noise
 amp_lfo = Sine(freq=0.1, mul=0.6, add=0.6)  # Slow sine wave LFO for amplitude modulation
